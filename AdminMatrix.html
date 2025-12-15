@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Proximity Matrix Pyramid</title>
+
+<style>
+:root{
+  --cell-size:50px;
+  --cell-gap:20px;
+}
+
+/* page */
+body{
+  font-family: Arial, sans-serif;
+  background:#f5f6fa;
+  padding:20px;
+}
+h1{text-align:center;margin-bottom:6px;}
+p{text-align:center;color:#555;margin-bottom:16px;}
+
+/* modes */
+#modes{
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:18px;
+}
+.mode{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  user-select:none;
+  color:#fff;
+}
+.mode.selected{outline:3px solid rgba(0,0,0,.2);}
+.mode .box{width:14px;height:14px;border-radius:3px;background:#fff}
+
+/* colors */
+.E{background:#e74c3c;}
+.I{background:#f39c12;}
+.C{background:#2ecc71;}
+.N{background:#bdc3c7;color:#000;}
+.S{background:#34495e;}
+.X{background:#7f8c8d;}
+
+/* pyramid wrapper */
+.pyramid-wrapper{
+  position:relative;
+  display:flex;
+  justify-content:center;
+  padding:26px 8px calc(50px + var(--cell-size)*1.6);
+  background:#fff;
+  border-radius:12px;
+}
+
+/* pyramid */
+.pyramid{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:var(--cell-gap);
+}
+
+/* rows */
+.row{
+  display:flex;
+  gap:var(--cell-gap);
+}
+
+/* cell color overrides */
+.cell.E{ background:#e74c3c; }
+.cell.I{ background:#f39c12; }
+.cell.C{ background:#2ecc71; }
+.cell.N{ background:#bdc3c7; }
+.cell.S{ background:#34495e; }
+
+.cell{
+  width:var(--cell-size);
+  height:var(--cell-size);
+  background:#ecf0f1;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transform:rotate(45deg);
+}
+.cell span{
+  transform:rotate(-45deg);
+  color:#fff;
+  font-size:12px;
+  font-weight:bold;
+}
+
+/* bottom labels (angled, aligned) */
+#labelsList{
+  position:absolute;
+  /* place labels below the pyramid base to avoid overlapping clickable cells */
+  bottom: calc(-1 * var(--cell-size) * 0.65);
+  left:50%;
+  transform:translateX(-50%);
+  pointer-events:none; /* allow clicks to pass through except on individual labels */
+  width:100%;
+  height:calc(var(--cell-size) * 1.6);
+}
+
+.labelItem{
+  position:absolute; /* positioned by JS left value */
+  width:var(--cell-size);
+  height:calc(var(--cell-size) * 1);
+  display:flex;
+  justify-content:center;
+  align-items:flex-end;
+  pointer-events:auto; /* enable clicks on the label itself */
+}
+
+.labelInner{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  transform:rotate(-45deg);   /* follow pyramid diagonal */
+  transform-origin:center center;
+  pointer-events:auto; /* allow inner elements to receive pointer events */
+}
+
+.labelText{
+  white-space:nowrap;
+  font-weight:600;
+  color:#2b2b2b;
+  cursor:text;
+  line-height:1;
+}
+
+.removeBtn{
+  background:transparent;
+  border:none;
+  color:#888;
+  cursor:pointer;
+  font-size:12px;
+  padding:0 4px;
+  line-height:1;
+  pointer-events:auto; /* clickable */
+}
+
+/* add label */
+#addLabel{
+  margin-top:40px;
+  display:flex;
+  gap:8px;
+  justify-content:center;
+}
+#addLabel input{
+  padding:6px 8px;
+}
+#addLabel button{
+  padding:6px 10px;
+  border:none;
+  background:#2d8cff;
+  color:#fff;
+  cursor:pointer;
+}
+
+@media(max-width:700px){
+  :root{--cell-size:40px;--cell-gap:10px}
+}
+</style>
+</head>
+
+<body>
+
+<h1>Proximity Matrix – Pyramid View</h1>
+<p>Select a relationship, then click any box in the pyramid to color it</p>
+
+<div id="modes">
+  <div class="mode E selected" data-mode="E"><span class="box"></span>Essential</div>
+  <div class="mode I" data-mode="I"><span class="box"></span>Important</div>
+  <div class="mode C" data-mode="C"><span class="box"></span>Convenient</div>
+  <div class="mode N" data-mode="N"><span class="box"></span>Neutral</div>
+  <div class="mode S" data-mode="S"><span class="box"></span>Separate</div>
+  <div class="mode X" data-mode="X"><span class="box"></span>Remove</div>
+</div>
+
+<div class="pyramid-wrapper">
+  <div class="pyramid" id="pyramid"></div>
+  <div id="labelsList"></div>
+</div>
+
+<div id="addLabel">
+  <input id="newLabel" placeholder="Add label" />
+  <button id="addBtn">Add</button>
+</div>
+
+<script>
+let spaces=[
+  'Admin','Surgery','Inpatient','Outpatient',
+  'Emergency','Ancillary','Maternal','Food','Maintenance','Mortuary'
+];
+
+const pyramid=document.getElementById('pyramid');
+const labelsList=document.getElementById('labelsList');
+let currentMode='E';
+let painting=false;
+
+// ensure we only attach one global pointerup listener
+if(!window._pyramidPointerUpListenerAdded){
+  window.addEventListener('pointerup', ()=>{ painting = false; });
+  window._pyramidPointerUpListenerAdded = true;
+}
+
+// colors matrix: colors[rowIndex][colIndex] = mode char or ''
+let colors = [];
+
+function initColors(newN){
+  const old = colors.slice();
+  const newC = [];
+  for(let r=1;r<=newN;r++){
+    const row = new Array(r).fill('');
+    if(old[r-1]){
+      for(let c=0;c<Math.min(old[r-1].length,row.length);c++) row[c]=old[r-1][c]||'';
+    }
+    newC.push(row);
+  }
+  colors = newC;
+}
+
+function setMode(m){
+  currentMode=m;
+  document.querySelectorAll('.mode').forEach(el=>{
+    el.classList.toggle('selected',el.dataset.mode===m);
+  });
+}
+
+document.querySelectorAll('.mode').forEach(el=>{
+  el.onclick=()=>setMode(el.dataset.mode);
+});
+
+function buildPyramid(){
+  pyramid.innerHTML='';
+  const n=spaces.length;
+  // ensure colors sized correctly
+  if(!colors.length || colors.length !== n) initColors(n);
+
+  for(let r=1;r<=n;r++){
+    const row=document.createElement('div');
+    row.className='row';
+
+    for(let c=0;c<r;c++){
+      const cell=document.createElement('div');
+      cell.className='cell';
+      cell.dataset.row = r-1;
+      cell.dataset.col = c;
+      const span=document.createElement('span');
+      cell.appendChild(span);
+
+      // apply saved color if any
+      const saved = (colors[r-1] && colors[r-1][c]) || '';
+      if(saved){
+        cell.classList.add(saved);
+        span.textContent = saved;
+      }
+
+      const paint=()=>{
+        if(currentMode==='X'){
+          // clear
+          span.textContent='';
+          ['E','I','C','N','S'].forEach(cl=>cell.classList.remove(cl));
+          colors[r-1][c] = '';
+          return;
+        }
+        // toggle same mode off
+        if(colors[r-1][c] === currentMode){
+          colors[r-1][c] = '';
+          cell.classList.remove(currentMode);
+          span.textContent = '';
+        } else {
+          colors[r-1][c] = currentMode;
+          ['E','I','C','N','S'].forEach(cl=>cell.classList.remove(cl));
+          cell.classList.add(currentMode);
+          span.textContent = currentMode;
+        }
+      };
+
+      // pointer events: pointerdown for initial paint, pointerenter for drag-paint
+      cell.addEventListener('pointerdown', (e)=>{ e.preventDefault(); painting = true; paint(); });
+      cell.addEventListener('pointerenter', ()=>{ if(painting) paint(); });
+      // keyboard accessibility
+      cell.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') { paint(); e.preventDefault(); } });
+
+      row.appendChild(cell);
+    }
+    pyramid.appendChild(row);
+  }
+
+  const baseWidth =
+    n*parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size')) +
+    (n-1)*parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-gap'));
+
+  pyramid.style.width=baseWidth+'px';
+  labelsList.style.width=baseWidth+'px';
+
+  renderLabels();
+}
+
+function renderLabels(){
+  labelsList.innerHTML='';
+  const cellSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
+  const cellGap = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-gap'));
+
+  // create label elements first
+  const items = [];
+  spaces.forEach((text,idx)=>{
+    const item=document.createElement('div');
+    item.className='labelItem';
+    item.style.width = cellSize + 'px';
+    item.style.pointerEvents = 'auto';
+
+    const inner=document.createElement('div');
+    inner.className='labelInner';
+
+    const label=document.createElement('div');
+    label.className='labelText';
+    label.contentEditable=true;
+    label.innerText=text;
+
+    label.onblur=()=>{
+      spaces[idx]=label.innerText.trim()||('Label '+(idx+1));
+      buildPyramid();
+    };
+
+    const remove=document.createElement('button');
+    remove.className='removeBtn';
+    remove.innerText='✕';
+    remove.onclick=()=>{
+      // remove column idx from colors matrix
+      const n = spaces.length;
+      for(let r=idx+1; r<=n; r++){
+        if(colors[r-1] && colors[r-1].length>idx) colors[r-1].splice(idx,1);
+      }
+      // remove last row entirely
+      colors.pop();
+      spaces.splice(idx,1);
+      buildPyramid();
+    };
+
+    inner.appendChild(label);
+    inner.appendChild(remove); // put remove inside rotated block so it aligns with text
+    item.appendChild(inner);
+
+    labelsList.appendChild(item);
+    items.push(item);
+  });
+
+  // After DOM added and layout applied, align each label to its base cell center
+  requestAnimationFrame(()=>{
+    const rows = pyramid.querySelectorAll('.row');
+    if(!rows.length) return;
+    const baseRow = rows[rows.length - 1];
+    const baseCells = Array.from(baseRow.children);
+    const labelsRect = labelsList.getBoundingClientRect();
+
+    items.forEach((item, idx)=>{
+      const cell = baseCells[idx];
+      if(!cell) return;
+      const cellRect = cell.getBoundingClientRect();
+      // center of the cell
+      const cx = cellRect.left + cellRect.width/2;
+      // compute left relative to labelsList
+      // shift left by one cell-size to nudge labels left
+      const left = Math.round(cx - labelsRect.left - (item.offsetWidth/2) - cellSize);
+      // place label slightly below the base cell
+      const top = Math.round(cellRect.bottom - labelsRect.top + 6);
+      item.style.left = left + 'px';
+      item.style.top = top + 'px';
+    });
+  });
+
+  // ensure layout aligns after labels are rendered
+  adjustLayout();
+}
+document.getElementById('addBtn').onclick=()=>{
+  const v=document.getElementById('newLabel').value.trim();
+  if(!v)return;
+  spaces.push(v);
+  // expand colors matrix to new size preserving old values
+  initColors(spaces.length);
+  document.getElementById('newLabel').value='';
+  buildPyramid();
+};
+
+setMode('E');
+buildPyramid();
+</script>
+
+</body>
+</html>
