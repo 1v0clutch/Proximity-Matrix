@@ -1,0 +1,42 @@
+:root {
+  --row-h: 30px;
+}
+
+@media (max-width: 600px) { :root { --row-h: 24px; } }
+@media (max-width: 400px) { :root { --row-h: 20px; } }
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+@media (max-width: 600px) { .app { padding: 14px 12px; } }
+
+.header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.title {
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin: 0 0 .3rem;
+  color: #2c3e50;
+}
+
+.subtitle {
+  color: #7f8c8d;
+  margin: 0;
+  font-size: .88rem;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.main > * {
+  width: 100%;
+}
