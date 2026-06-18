@@ -19,16 +19,16 @@ const FILL_COLORS: Record<string, string> = {
 };
 
 interface Props {
-  spaces:        string[];
+  spaces: string[];
   relationships: string[][];
-  currentMode:   RelationshipKey;
-  onPaint:  (row: number, col: number, mode: RelationshipKey) => void;
+  currentMode: RelationshipKey;
+  onPaint: (row: number, col: number, mode: RelationshipKey) => void;
   onRename: (index: number, name: string) => void;
   onRemove: (index: number) => void;
 }
 
 export function ProximityMatrix({ spaces, relationships, currentMode, onPaint, onRename, onRemove }: Props) {
-  const outerRef   = useRef<HTMLDivElement>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isPaintingRef = useRef(false);
   const [outerH, setOuterH] = useState<number | undefined>();
@@ -43,17 +43,17 @@ export function ProximityMatrix({ spaces, relationships, currentMode, onPaint, o
   }, []);
 
   const computeLayout = useCallback(() => {
-    const outer   = outerRef.current;
+    const outer = outerRef.current;
     const wrapper = wrapperRef.current;
     if (!outer || !wrapper) return;
 
-    wrapper.style.transform      = 'scale(1)';
+    wrapper.style.transform = 'scale(1)';
     wrapper.style.transformOrigin = 'top left';
 
     const availW = outer.clientWidth;
-    const natW   = wrapper.scrollWidth;
-    const natH   = wrapper.scrollHeight;
-    const s      = natW > availW && availW > 0 ? availW / natW : 1;
+    const natW = wrapper.scrollWidth;
+    const natH = wrapper.scrollHeight;
+    const s = natW > availW && availW > 0 ? availW / natW : 1;
 
     wrapper.style.transform = `scale(${s})`;
     setOuterH(Math.ceil(natH * s));
@@ -116,17 +116,17 @@ export function ProximityMatrix({ spaces, relationships, currentMode, onPaint, o
    Lines meeting at 45 degrees form the cell boundaries.
 ══════════════════════════════════════════════════════════════════ */
 interface DiamondProps {
-  n:             number;
-  spaces:        string[];
+  n: number;
+  spaces: string[];
   relationships: string[][];
-  isPaintingRef:    React.MutableRefObject<boolean>;
-  onPaint:       (row: number, col: number) => void;
+  isPaintingRef: React.MutableRefObject<boolean>;
+  onPaint: (row: number, col: number) => void;
 }
 
 function DiamondMatrix({ n, spaces, relationships, isPaintingRef, onPaint }: DiamondProps) {
-  const ROW_H    = 30;
-  const totalW   = n * (ROW_H / 2);
-  const totalH   = n * ROW_H;
+  const ROW_H = 30;
+  const totalW = n * (ROW_H / 2);
+  const totalH = n * ROW_H;
 
   // Render grid lines
   const lines: React.ReactNode[] = [];
@@ -183,7 +183,7 @@ function DiamondMatrix({ n, spaces, relationships, isPaintingRef, onPaint }: Dia
           className={styles.cellGroup}
           role="button"
           tabIndex={0}
-          title={`${spaces[u]} × ${spaces[v]}`}
+          //title={`${spaces[u]} × ${spaces[v]}`}
           aria-label={`${spaces[u]} × ${spaces[v]}${val ? ': ' + val : ''}`}
           aria-pressed={!!val}
           onPointerDown={e => {
@@ -203,6 +203,7 @@ function DiamondMatrix({ n, spaces, relationships, isPaintingRef, onPaint }: Dia
             }
           }}
         >
+          <title>{`${spaces[u]} × ${spaces[v]}`}</title>
           <polygon className={styles.cellDiamond} points={points} />
           <circle
             className={`${styles.cellCircle} ${val ? styles.cellCircleFilled : ''}`}
@@ -245,13 +246,13 @@ function DiamondMatrix({ n, spaces, relationships, isPaintingRef, onPaint }: Dia
    Label row
 ══════════════════════════════════════════════════════════════════ */
 interface LabelRowProps {
-  index:       number;
-  name:        string;
-  color:       string;
-  isEditing:   boolean;
+  index: number;
+  name: string;
+  color: string;
+  isEditing: boolean;
   onEditStart: () => void;
-  onEditEnd:   (name: string) => void;
-  onRemove:    () => void;
+  onEditEnd: (name: string) => void;
+  onRemove: () => void;
 }
 
 function LabelRow({ name, color, isEditing, onEditStart, onEditEnd, onRemove }: LabelRowProps) {
@@ -279,15 +280,15 @@ function LabelRow({ name, color, isEditing, onEditStart, onEditEnd, onRemove }: 
         onDoubleClick={onEditStart}
         onBlur={e => { if (isEditing) onEditEnd(e.currentTarget.textContent ?? ''); }}
         onKeyDown={e => {
-          if (e.key === 'Enter')  { e.preventDefault(); (e.target as HTMLElement).blur(); }
+          if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLElement).blur(); }
           if (e.key === 'Escape') { (e.target as HTMLElement).blur(); }
         }}
       >
         {name}
       </div>
       <div className={styles.labelActions}>
-        <button className={styles.editBtn}   type="button" onClick={onEditStart} aria-label={`Edit ${name}`}   title="Rename">✎</button>
-        <button className={styles.removeBtn} type="button" onClick={onRemove}    aria-label={`Remove ${name}`} title="Remove">✕</button>
+        <button className={styles.editBtn} type="button" onClick={onEditStart} aria-label={`Edit ${name}`} title="Rename">✎</button>
+        <button className={styles.removeBtn} type="button" onClick={onRemove} aria-label={`Remove ${name}`} title="Remove">✕</button>
       </div>
     </div>
   );
