@@ -3,7 +3,7 @@ import { DEFAULT_SPACES, type RelationshipKey } from '../types';
 
 /**
  * Builds a fresh triangular relationships matrix for n spaces.
- * Row r (0-indexed) has r+1 cells.
+ * Row r (0-indexed) has r+1 cells. 
  */
 function buildRelationships(n: number): string[][] {
   return Array.from({ length: n }, (_, r) => new Array(r + 1).fill(''));
